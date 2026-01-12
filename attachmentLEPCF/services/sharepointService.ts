@@ -1,12 +1,15 @@
-import { SharePointFile, SharePointFilesResponse, DocumentLocation } from "../types";
+import {
+    SharePointFile,
+    SharePointFilesResponse,
+    DocumentLocation,
+} from "../types";
 import { IInputs } from "../generated/ManifestTypes";
 
 export async function loadPdfs(
     context: ComponentFramework.Context<IInputs>
 ): Promise<SharePointFile[]> {
-
-     const recordId = context.parameters.recordId.raw!;
-      if (!recordId) return [];
+    const recordId = context.parameters.recordId.raw!;
+    if (!recordId) return [];
 
     const location = await getLocation(context, recordId);
     const siteUrl = await getSiteUrl(context, location);
@@ -18,22 +21,18 @@ export async function loadPdfs(
 
     const json = (await res.json()) as SharePointFilesResponse;
 
-    return json.d.results.filter(
-        f => f.Name.toLowerCase().endsWith(".pdf")
-    );
+    return json.d.results.filter((f) => f.Name.toLowerCase().endsWith(".pdf"));
 }
 
 export async function uploadPdfs(
     context: ComponentFramework.Context<IInputs>,
     files: FileList
 ): Promise<void> {
-
     const recordId = context.parameters.recordId.raw!;
     const location = await getLocation(context, recordId);
     const siteUrl = await getSiteUrl(context, location);
 
     for (const file of Array.from(files)) {
-
         if (file.type !== "application/pdf") continue;
 
         const uploadUrl =
@@ -43,7 +42,7 @@ export async function uploadPdfs(
         await fetch(uploadUrl, {
             method: "POST",
             headers: { Accept: "application/json;odata=verbose" },
-            body: file
+            body: file,
         });
     }
 }
@@ -51,32 +50,34 @@ async function getLocation(
     context: ComponentFramework.Context<IInputs>,
     recordId: string
 ): Promise<DocumentLocation> {
-
-    const result =
-        await context.webAPI.retrieveMultipleRecords(
-            "sharepointdocumentlocation",
-            `?$select=relativeurl,parentsiteorlocation_sharepointsite
+    const result = await context.webAPI.retrieveMultipleRecords(
+        "sharepointdocumentlocation",
+        `?$select=relativeurl,_parentsiteorlocation_value   
        &$filter=_regardingobjectid_value eq ${recordId}`
-        );
+    );
 
     const entity = result.entities[0] as unknown as DocumentLocation;
 
-    return entity;
-}
+    const result2 = await context.webAPI.retrieveMultipleRecords(
+        "sharepointdocumentlocation",
+        `?$select=relativeurl,_parentsiteorlocation_value   
+       &$filter=sharepointdocumentlocationid eq ${entity._parentsiteorlocation_value}`
+    );
 
+    const entity2 = result2.entities[0] as unknown as DocumentLocation;
+
+    return entity2;
+}
 
 async function getSiteUrl(
     context: ComponentFramework.Context<IInputs>,
     location: DocumentLocation
 ): Promise<string> {
-
     const site = await context.webAPI.retrieveRecord(
         "sharepointsite",
-        location.parentsiteorlocation_sharepointsite,
+        location._parentsiteorlocation_value,
         "?$select=absoluteurl"
     );
 
     return site.absoluteurl as string;
 }
-
-

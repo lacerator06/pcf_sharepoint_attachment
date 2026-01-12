@@ -12,5 +12,5 @@ export interface SharePointFilesResponse {
 export interface DocumentLocation {
   sharepointdocumentlocationid: string;
   relativeurl: string;
-  parentsiteorlocation_sharepointsite: string;
+  _parentsiteorlocation_value: string;
 }
